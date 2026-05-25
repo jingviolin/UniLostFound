@@ -5,11 +5,27 @@
 // 或者在本地开发时将密钥填入下方的变量中（切记推送到 GitHub 前清空）
 const DEEPSEEK_API_KEY = localStorage.getItem('DEEPSEEK_KEY') || 'sk-请在控制台设置密钥';
 
-const supabaseUrl = 'https://qwfycdxddzchdfdjqeki.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZnljZHhkZHpjaGRmZGpxZWtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTQ0OTksImV4cCI6MjA4OTIzMDQ5OX0.hIigcI-xJW4WZAr0_LGqNjGiG33U4CEqNAfWDW32__Y';
+const supabaseUrl = 'https://ufkkmdqmqsrkhwxzmrlc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVma2ttZHFtcXNya2h3eHptcmxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTIwMjksImV4cCI6MjA5NTI2ODAyOX0.3VlT8-jLpETZGttmWR-opakkR31tBda3roazsjYo4DU';
 
 // Node 0: 初始化 Supabase
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+let supabaseClient = null;
+try {
+    if (window.location.protocol === 'file:') {
+        Logger.error('SYSTEM', '检测到协议为 file://，请使用 http://localhost:8000 访问，否则认证功能将失效！');
+        alert('请注意：直接双击打开 HTML 文件无法使用登录功能。请在 Trae 终端运行服务器后通过 http://localhost:8000 访问。');
+    }
+
+    if (typeof supabase !== 'undefined') {
+        supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        Logger.info('SYSTEM', 'Supabase SDK 初始化成功');
+    } else {
+        throw new Error('Supabase SDK 未加载，请检查网络或 CDN 链接');
+    }
+} catch (e) {
+    console.error('Supabase 初始化失败:', e);
+    alert('系统初始化失败，请检查网络连接是否通畅！');
+}
 
 // ==========================================
 // Week 8: Reliability & Observability Tools
@@ -70,7 +86,9 @@ async function withRetry(fn, maxRetries = 3, delay = 1000) {
     }
 }
 
-// --- 身份验证逻辑 (Week 6 遗留与 Week 7 衔接) ---
+// --- 身份验证逻辑 (Week 9 UI Upgrade) ---
+let authMode = 'login'; // 'login' 或 'register'
+
 async function checkUser() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     const statusEl = document.getElementById('userStatus');
@@ -85,29 +103,109 @@ async function checkUser() {
     }
 }
 
+function openAuthModal() {
+    document.getElementById('authModal').style.display = 'flex';
+    setAuthMode('login');
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('authError').style.display = 'none';
+}
+
+function setAuthMode(mode) {
+    authMode = mode;
+    const title = document.getElementById('modalTitle');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const switchText = document.getElementById('switchText');
+    const switchBtn = document.getElementById('switchBtn');
+    
+    if (mode === 'login') {
+        title.innerText = '登录';
+        submitBtn.innerText = '立即登录';
+        switchText.innerText = '还没有账号？';
+        switchBtn.innerText = '立即注册';
+    } else {
+        title.innerText = '注册新账号';
+        submitBtn.innerText = '提交注册';
+        switchText.innerText = '已有账号？';
+        switchBtn.innerText = '去登录';
+    }
+}
+
+function switchAuthMode() {
+    setAuthMode(authMode === 'login' ? 'register' : 'login');
+}
+
+async function handleAuth() {
+    const emailInput = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const errorEl = document.getElementById('authError');
+    const submitBtn = document.getElementById('authSubmitBtn');
+
+    if (!emailInput || !password) {
+        errorEl.innerText = '请填写账号和密码';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (password.length < 6) {
+        errorEl.innerText = '密码至少需要 6 位';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    const email = emailInput.includes('@') ? emailInput : `${emailInput}@unilostfound.com`;
+
+    submitBtn.disabled = true;
+    submitBtn.innerText = authMode === 'login' ? '正在登录...' : '正在注册...';
+    errorEl.style.display = 'none';
+
+    try {
+        let result;
+        if (authMode === 'login') {
+            result = await supabaseClient.auth.signInWithPassword({ email, password });
+        } else {
+            result = await supabaseClient.auth.signUp({ email, password });
+        }
+
+        if (result.error) throw result.error;
+
+        Logger.info('AUTH', `${authMode === 'login' ? '登录' : '注册'}成功`, { user: email });
+        alert(authMode === 'login' ? '登录成功！' : '注册成功！');
+        closeAuthModal();
+        checkUser();
+    } catch (err) {
+        let friendlyMsg = err.message;
+        
+        // 针对 Failed to fetch 的专项诊断
+        if (err.message === 'Failed to fetch') {
+            if (window.location.protocol === 'file:') {
+                friendlyMsg = '检测到您直接双击打开了 HTML 文件，请使用 http://localhost:8000 访问！';
+            } else {
+                friendlyMsg = '网络连接被拦截！请检查：1. 是否开启了广告拦截插件？ 2. 校园网是否屏蔽了 Supabase？';
+            }
+        }
+
+        Logger.error('AUTH', '认证失败', friendlyMsg);
+        errorEl.innerText = '失败: ' + friendlyMsg;
+        errorEl.style.display = 'block';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = authMode === 'login' ? '立即登录' : '提交注册';
+    }
+}
+
 async function toggleAuth() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (user) {
         await supabaseClient.auth.signOut();
+        Logger.info('AUTH', '用户退出登录');
         alert('已退出登录');
+        checkUser();
     } else {
-        const email = prompt('请输入邮箱:');
-        const password = prompt('请输入密码:');
-        if (!email || !password) return;
-
-        // 尝试登录，如果失败则尝试注册
-        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-            console.log('登录失败，尝试注册...');
-            let { data: regData, error: regError } = await supabaseClient.auth.signUp({ email, password });
-            if (regError) return alert('认证失败: ' + regError.message);
-            alert('注册成功！请检查邮箱验证（或直接在 Supabase 后台确认）');
-        } else {
-            alert('登录成功！');
-        }
+        openAuthModal();
     }
-    checkUser();
 }
 // ------------------------------------------
 
@@ -136,6 +234,14 @@ async function parseByAI() {
     const text = document.getElementById('itemDesc').value.trim();
     if (!text) return alert('请先输入描述信息');
 
+    // 自动清洗密钥 (移除可能存在的空格或中文符号)
+    const rawKey = localStorage.getItem('DEEPSEEK_KEY') || '';
+    const cleanKey = rawKey.trim().replace(/[\u4e00-\u9fa5]/g, ''); 
+
+    if (!cleanKey || cleanKey === 'sk-请在控制台设置密钥') {
+        return alert('检测到 API 密钥未设置或格式错误。请按 F12 在控制台输入 localStorage.setItem("DEEPSEEK_KEY", "您的真实密钥")');
+    }
+
     const btn = document.getElementById('aiParseBtn');
     btn.innerText = 'AI 正在识别...';
     btn.disabled = true;
@@ -149,7 +255,7 @@ async function parseByAI() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                    'Authorization': `Bearer ${cleanKey}`
                 },
                 body: JSON.stringify({
                     model: "deepseek-chat",

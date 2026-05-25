@@ -82,5 +82,31 @@
     </div>
 
     <script src="app.js"></script>
+
+    <!-- 登录/注册 模态框 (Week 9 UI Upgrade) -->
+    <div id="authModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">登录</h2>
+                <button class="close-btn" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="authEmail">账号 (邮箱/用户名)</label>
+                    <input type="text" id="authEmail" placeholder="请输入您的账号">
+                </div>
+                <div class="input-group">
+                    <label for="authPassword">密码</label>
+                    <input type="password" id="authPassword" placeholder="请输入密码">
+                </div>
+                <div id="authError" class="error-msg" style="display: none;"></div>
+                <button id="authSubmitBtn" class="primary-btn" onclick="handleAuth()">立即登录</button>
+                <p class="auth-switch">
+                    <span id="switchText">还没有账号？</span>
+                    <a href="javascript:void(0)" onclick="switchAuthMode()" id="switchBtn">立即注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
