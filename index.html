@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校寻 (UniLostFound) - 校园失物招领</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="auth-box">
+                <span id="userStatus">未登录</span>
+                <button id="loginBtn" onclick="toggleAuth()">登录/注册</button>
+            </div>
+            <h1>校寻 (UniLostFound)</h1>
+            <p>基于 AI 的智慧校园失物招领平台</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('found')">我捡到了</button>
+            <button class="tab-btn" onclick="switchTab('lost')">我丢了东西</button>
+        </div>
+
+        <div class="card">
+            <div id="publishForm">
+                <h3>发布招领/寻物信息</h3>
+                <textarea id="itemDesc" placeholder="请描述物品，或直接粘贴一段描述信息（AI 会自动解析）..."></textarea>
+                <div class="form-actions">
+                    <button id="aiParseBtn" onclick="parseByAI()">AI 智能识别</button>
+                    <button id="submitBtn" class="primary-btn" onclick="submitInfo()">确认发布</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultPreview" class="card" style="display: none;">
+            <div class="result-header">
+                <h3>🔍 AI 解析结果 (请核对并修正)</h3>
+                <span class="badge">Human-in-the-loop</span>
+            </div>
+            <div class="result-grid">
+                <div class="result-item">
+                    <span class="label">物品名称</span>
+                    <input type="text" id="resItem" class="edit-input">
+                </div>
+                <div class="result-item">
+                    <span class="label">物品类别</span>
+                    <select id="resCategory" class="edit-input">
+                        <option value="证件">证件</option>
+                        <option value="数码">数码</option>
+                        <option value="钥匙">钥匙</option>
+                        <option value="文具">文具</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="result-item">
+                    <span class="label">拾得/丢失时间</span>
+                    <input type="text" id="resTime" class="edit-input">
+                </div>
+                <div class="result-item">
+                    <span class="label">具体地点</span>
+                    <input type="text" id="resLocation" class="edit-input">
+                </div>
+            </div>
+            <div class="hitl-hint">💡 提示：AI 提取可能不准，请点击上方输入框手动修正。</div>
+        </div>
+
+        <div class="card">
+            <h3>🔍 最新动态</h3>
+            <div id="itemList" class="item-list">
+                <p class="empty-msg">正在加载最新信息...</p>
+            </div>
+        </div>
+
+        <div class="card debug-card">
+            <h3>🛠 系统日志 (Observability)</h3>
+            <div id="systemLogs" class="log-panel">
+                <p class="empty-msg">暂无运行日志</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
