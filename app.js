@@ -1,5 +1,10 @@
 // UniLostFound - Week 7: Agentic Workflow Implementation
-const DEEPSEEK_API_KEY = 'sk-54ab56d58b974407b6ffa74e022d3945';
+
+// 安全提醒：API Key 已从源代码中移除以防止泄露。
+// 请在浏览器控制台输入：localStorage.setItem('DEEPSEEK_KEY', '你的新密钥') 
+// 或者在本地开发时将密钥填入下方的变量中（切记推送到 GitHub 前清空）
+const DEEPSEEK_API_KEY = localStorage.getItem('DEEPSEEK_KEY') || 'sk-请在控制台设置密钥';
+
 const supabaseUrl = 'https://qwfycdxddzchdfdjqeki.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZnljZHhkZHpjaGRmZGpxZWtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTQ0OTksImV4cCI6MjA4OTIzMDQ5OX0.hIigcI-xJW4WZAr0_LGqNjGiG33U4CEqNAfWDW32__Y';
 
