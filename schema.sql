@@ -48,6 +48,11 @@ CREATE POLICY "Allow participants to view conversations"
   ON conversations FOR SELECT 
   USING (auth.uid() = participant_1 OR auth.uid() = participant_2);
 
+-- 允许参与者创建对话
+CREATE POLICY "Allow participants to insert conversations" 
+  ON conversations FOR INSERT 
+  WITH CHECK (auth.uid() = participant_1 OR auth.uid() = participant_2);
+
 -- 消息表 RLS：仅对话参与者可见
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow participants to view messages" 
@@ -62,4 +67,11 @@ CREATE POLICY "Allow participants to view messages"
 
 CREATE POLICY "Allow participants to insert messages" 
   ON messages FOR INSERT 
-  WITH CHECK (auth.uid() = sender_id);
+  WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (
+      SELECT 1 FROM conversations 
+      WHERE id = messages.conversation_id 
+      AND (participant_1 = auth.uid() OR participant_2 = auth.uid())
+    )
+  );

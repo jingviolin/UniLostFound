@@ -4,19 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>校寻 (UniLostFound) - 校园失物招领</title>
+    <!-- 引入现代字体与图标 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <div class="auth-box">
-                <button class="settings-btn" onclick="promptApiKey()" title="设置 API Key">⚙️</button>
-                <span id="userStatus">未登录</span>
-                <button id="loginBtn" onclick="toggleAuth()">登录/注册</button>
+            <div class="header-top">
+                <div class="logo-area">
+                    <h1>校寻 <span>UniLostFound</span></h1>
+                    <p>基于 AI 的智慧校园失物招领平台</p>
+                </div>
+                <div class="auth-box">
+                    <button class="settings-btn" onclick="promptApiKey()" title="设置 API Key">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <div class="user-info">
+                        <span id="userStatus">未登录</span>
+                        <button id="loginBtn" class="auth-btn" onclick="toggleAuth()">登录/注册</button>
+                    </div>
+                </div>
             </div>
-            <h1>校寻 (UniLostFound)</h1>
-            <p>基于 AI 的智慧校园失物招领平台</p>
         </header>
 
         <div class="tabs">
@@ -29,8 +40,12 @@
                 <h3>发布招领/寻物信息</h3>
                 <textarea id="itemDesc" placeholder="请描述物品，或直接粘贴一段描述信息（AI 会自动解析）..."></textarea>
                 <div class="form-actions">
-                    <button id="aiParseBtn" onclick="parseByAI()">AI 智能识别</button>
-                    <button id="submitBtn" class="primary-btn" onclick="submitInfo()">确认发布</button>
+                    <button id="aiParseBtn" class="primary-btn ai-btn" onclick="parseByAI()">
+                        <i class="fas fa-magic"></i> AI 智能识别
+                    </button>
+                    <button id="submitBtn" class="primary-btn" onclick="submitInfo()">
+                        <i class="fas fa-paper-plane"></i> 确认发布
+                    </button>
                 </div>
             </div>
         </div>
