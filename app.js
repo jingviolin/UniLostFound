@@ -89,6 +89,17 @@ async function withRetry(fn, maxRetries = 3, delay = 1000) {
 // --- 身份验证逻辑 (Week 9 UI Upgrade) ---
 let authMode = 'login'; // 'login' 或 'register'
 
+function promptApiKey() {
+    const key = prompt('请输入您的 DeepSeek API Key (sk-...)');
+    if (key && key.startsWith('sk-')) {
+        localStorage.setItem('DEEPSEEK_KEY', key.trim());
+        Logger.info('SYSTEM', 'API Key 设置成功');
+        alert('API Key 已保存！现在可以进行 AI 识别了。');
+    } else if (key) {
+        alert('密钥格式不正确，必须以 sk- 开头');
+    }
+}
+
 async function checkUser() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     const statusEl = document.getElementById('userStatus');
@@ -373,14 +384,14 @@ async function triggerAutoMatch(newItem) {
                 .eq('type', matchType)
                 .eq('category', newItem.category)
                 .eq('status', 'active')
-                .limit(3);
+                .limit(5);
             if (res.error) throw res.error;
             return res;
         });
 
         if (data && data.length > 0) {
             Logger.info('Node 5', `发现 ${data.length} 个潜在匹配项`, data);
-            alert(`🎉 发现 ${data.length} 个潜在匹配项！请查看“最新动态”。`);
+            showMatchModal(data);
         } else {
             Logger.info('Node 5', '未发现即时匹配项');
         }
@@ -389,6 +400,23 @@ async function triggerAutoMatch(newItem) {
     }
     
     loadItems();
+}
+
+function showMatchModal(matches) {
+    const listEl = document.getElementById('matchResultsList');
+    listEl.innerHTML = matches.map(item => `
+        <div class="match-item">
+            <h4>${item.item_name}</h4>
+            <p>📍 地点: ${item.location}</p>
+            <p>⏱ 时间: ${new Date(item.occurred_at).toLocaleString()}</p>
+            <button class="chat-btn" onclick="closeMatchModal(); startChat('${item.id}')">立即私聊</button>
+        </div>
+    `).join('');
+    document.getElementById('matchModal').style.display = 'flex';
+}
+
+function closeMatchModal() {
+    document.getElementById('matchModal').style.display = 'none';
 }
 
 // 加载最新信息
@@ -415,9 +443,141 @@ async function loadItems() {
     }
 }
 
-function startChat(itemId) {
-    alert('私聊功能开发中... 敬请期待！');
+// --- 私聊系统逻辑 (Week 9 High-end Feature) ---
+let currentConversationId = null;
+let chatSubscription = null;
+
+async function startChat(itemId) {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return alert('请先登录后再发起私聊！');
+
+    Logger.info('CHAT', '正在初始化私聊...', { itemId });
+
+    try {
+        // 1. 获取物品信息，确定对方是谁
+        const { data: item, error: itemError } = await supabaseClient
+            .from('items')
+            .select('user_id, item_name')
+            .eq('id', itemId)
+            .single();
+
+        if (itemError) throw itemError;
+        if (item.user_id === user.id) return alert('这是你自己发布的信息哦！');
+
+        // 2. 查找是否已有对话
+        let { data: conv, error: convError } = await supabaseClient
+            .from('conversations')
+            .select('id')
+            .eq('item_id', itemId)
+            .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+            .or(`participant_1.eq.${item.user_id},participant_2.eq.${item.user_id}`)
+            .single();
+
+        // 3. 如果没有，则创建新对话
+        if (!conv) {
+            const { data: newConv, error: createError } = await supabaseClient
+                .from('conversations')
+                .insert([{
+                    item_id: itemId,
+                    participant_1: user.id,
+                    participant_2: item.user_id
+                }])
+                .select()
+                .single();
+            if (createError) throw createError;
+            conv = newConv;
+            Logger.info('CHAT', '创建了新对话', { convId: conv.id });
+        }
+
+        currentConversationId = conv.id;
+        document.getElementById('chatTitle').innerText = `私聊：${item.item_name}`;
+        document.getElementById('chatModal').style.display = 'flex';
+        
+        loadMessages();
+        subscribeToMessages(); // 开启实时订阅
+
+    } catch (err) {
+        Logger.error('CHAT', '初始化私聊失败', err.message);
+        alert('发起私聊失败: ' + err.message);
+    }
 }
+
+async function loadMessages() {
+    if (!currentConversationId) return;
+
+    const { data: msgs, error } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', currentConversationId)
+        .order('created_at', { ascending: true });
+
+    if (error) return Logger.error('CHAT', '拉取消息失败', error.message);
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const chatBox = document.getElementById('chatMessages');
+    
+    if (msgs.length > 0) {
+        chatBox.innerHTML = msgs.map(m => `
+            <div class="msg-bubble ${m.sender_id === user.id ? 'me' : 'other'}">
+                ${m.content}
+            </div>
+        `).join('');
+    } else {
+        chatBox.innerHTML = '<p class="empty-msg">暂无消息，打个招呼吧！</p>';
+    }
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    if (!content || !currentConversationId) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    try {
+        const { error } = await supabaseClient
+            .from('messages')
+            .insert([{
+                conversation_id: currentConversationId,
+                sender_id: user.id,
+                content: content
+            }]);
+
+        if (error) throw error;
+        input.value = '';
+        loadMessages(); // 立即刷新一次
+    } catch (err) {
+        alert('发送失败: ' + err.message);
+    }
+}
+
+function subscribeToMessages() {
+    // 移除旧订阅
+    if (chatSubscription) supabaseClient.removeChannel(chatSubscription);
+
+    // 开启 Supabase Realtime 订阅
+    chatSubscription = supabaseClient
+        .channel('public:messages')
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `conversation_id=eq.${currentConversationId}`
+        }, (payload) => {
+            console.log('收到新消息!', payload);
+            loadMessages(); // 收到新消息时刷新界面
+        })
+        .subscribe();
+}
+
+function closeChatModal() {
+    document.getElementById('chatModal').style.display = 'none';
+    if (chatSubscription) supabaseClient.removeChannel(chatSubscription);
+    currentConversationId = null;
+}
+
+// ------------------------------------------
 
 // 页面加载后拉取数据
 document.addEventListener('DOMContentLoaded', () => {
